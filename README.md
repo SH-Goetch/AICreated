@@ -1,2 +1,2 @@
 # AICreated
-Things created with the help of ChatGPT
+Things created with the help of ChatGPT, they may be really bad.......   
