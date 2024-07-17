@@ -16,7 +16,7 @@ LABEL_MATCH = 'your-label-match'
 TARGET_FOLDER = '/path/to/save/attachments'  # Replace with your desired target folder
 
 # Command to list messages with attachments under a specific label and save attachments
-list_messages_cmd = f"{GAM_PATH} user {EMAIL} show messages labelmatch {LABEL_MATCH} showattachments saveattachments targetfolder {TARGET_FOLDER}"
+list_messages_cmd = f"{GAM_PATH} user {EMAIL} show messages labelmatch {LABEL_NAME} showattachments saveattachments targetfolder {TARGET_FOLDER}"
 
 # Execute the command
 subprocess.run(list_messages_cmd, shell=True)
