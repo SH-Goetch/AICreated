@@ -24,7 +24,7 @@ list_messages_output = proc_list_messages.stdout.read().decode('utf-8').strip()
 # Process each message ID
 for msg_id in list_messages_output.splitlines():
     # Download attachments for each message
-    download_attachments_cmd = f"{GAM_PATH} user {EMAIL} get message {msg_id} format zip targetfolder attachments"
+    download_attachments_cmd = f"{GAM_PATH} user {EMAIL} print message {msg_id} attachment targetfolder attachments"
     subprocess.run(download_attachments_cmd, shell=True)
     
     # Record downloaded message ID (optional)
