@@ -16,7 +16,7 @@ LABEL_MATCH = 'DMARC'
 TARGET_FOLDER = '/Users/goetchstone/AICreated/DMARC/attachments/'
 
 # Command to list messages with attachments under a specific label and save attachments without overwriting
-list_messages_cmd = f"{GAM_PATH} user {EMAIL} show messages matchlabel {LABEL_MATCH} showattachments saveattachments targetfolder {TARGET_FOLDER} overwrite false"
+list_messages_cmd = f"{GAM_PATH} user {EMAIL} show messages matchlabel {LABEL_MATCH} showattachments saveattachments targetfolder {TARGET_FOLDER} overwrite true"
 
 # Execute the command
 subprocess.run(list_messages_cmd, shell=True)
