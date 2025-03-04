@@ -1,0 +1,124 @@
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+import os
+from datetime import datetime, timedelta
+
+# **Service Account Credentials (Use an environment variable or config file instead)**
+SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "path/to/service-account.json")
+SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+
+# **Authenticate with Google Drive API**
+creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+drive_service = build("drive", "v3", credentials=creds)
+
+# **Debug: Print which service account is being used (optional for debugging)**
+print(f"🔑 Using Service Account: {creds.service_account_email}")
+
+# **Get previous month (since script runs for last month's data)**
+first_of_this_month = datetime.today().replace(day=1)
+last_of_prev_month = first_of_this_month - timedelta(days=1)
+
+# **Format folder names as YYYY and MM-YYYY**
+month_year = last_of_prev_month.strftime("%m-%Y")  # Example: "02-2025"
+target_year = last_of_prev_month.strftime("%Y")  # Example: "2025"
+
+# **Root Folder ID (Use an environment variable for security)**
+ROOT_FOLDER_ID = os.getenv("GOOGLE_DRIVE_ROOT_FOLDER_ID", "root-folder-id-placeholder")
+
+# **Function to search for a folder by name under a given parent ID**
+def get_or_create_folder(parent_id, folder_name):
+    """Finds a folder by name under a given parent folder ID, or creates it if not found."""
+    print(f"🔍 Checking folder '{folder_name}' under Parent ID: {parent_id}...")
+
+    query = f"name contains '{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false and '{parent_id}' in parents"
+    
+    response = drive_service.files().list(
+        q=query,
+        fields="files(id, name)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
+    ).execute()
+
+    folders = response.get("files", [])
+
+    if folders:
+        print(f"✅ Folder '{folder_name}' found! ID: {folders[0]['id']}")
+        return folders[0]["id"]
+    else:
+        print(f"📁 Folder '{folder_name}' not found. Creating...")
+
+        folder_metadata = {
+            "name": folder_name,
+            "mimeType": "application/vnd.google-apps.folder",
+            "parents": [parent_id]
+        }
+
+        folder = drive_service.files().create(
+            body=folder_metadata,
+            fields="id",
+            supportsAllDrives=True
+        ).execute()
+
+        print(f"✅ Created folder '{folder_name}'. ID: {folder['id']}")
+        return folder["id"]
+
+# **Find (or Create) the "Year" Folder (e.g., "2025") under Sales Reports**
+year_folder_id = get_or_create_folder(ROOT_FOLDER_ID, target_year)
+
+# **Find (or Create) the "Month-Year" Folder (e.g., "02-2025") inside "2025"**
+month_folder_id = get_or_create_folder(year_folder_id, month_year)
+
+# **Function to check if a file already exists in Google Drive**
+def file_exists(folder_id, file_name):
+    """Check if a file with the same name already exists in the specified folder."""
+    print(f"🔎 Checking if '{file_name}' already exists in folder ID: {folder_id}...")
+
+    query = f"name='{file_name}' and '{folder_id}' in parents and trashed=false"
+
+    response = drive_service.files().list(
+        q=query,
+        fields="files(id, name)",
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
+    ).execute()
+
+    files = response.get("files", [])
+
+    if files:
+        print(f"⚠️ File '{file_name}' already exists! Skipping upload.")
+        return True
+    return False
+
+# **Upload Sales Reports to the Correct Folder**
+DOCUMENTS_PATH = os.getenv("LOCAL_DOCUMENTS_PATH", "/path/to/local/documents")
+exported_folder = os.path.join(DOCUMENTS_PATH, month_year)
+
+if not os.path.exists(exported_folder):
+    print(f"🚨 ERROR: Export folder not found: {exported_folder}")
+    exit(1)
+
+for file_name in os.listdir(exported_folder):
+    if file_name.endswith(".xlsx"):  # **Only upload Excel files**
+        file_path = os.path.join(exported_folder, file_name)
+
+        # **Check if the file already exists and skip if it does**
+        if file_exists(month_folder_id, file_name):
+            continue  # Skip this file, move to the next one
+
+        print(f"📤 Uploading '{file_name}' to Google Drive folder ID: {month_folder_id}")
+
+        file_metadata = {
+            "name": file_name,
+            "parents": [month_folder_id]  # ✅ Upload to dynamically found folder
+        }
+
+        uploaded_file = drive_service.files().create(
+            body=file_metadata,
+            media_body=file_path,
+            fields="id, parents, name",
+            supportsAllDrives=True  # ✅ Required for Shared Drive uploads
+        ).execute()
+
+        print(f"✅ Uploaded: {file_name} (File ID: {uploaded_file['id']}) to Google Drive under {month_year}")
+
+print("🎉 Upload process completed successfully!")
